@@ -25,7 +25,9 @@ class MainWindow(gtk.Frame):
         gtk.Frame.__init__(self)
         
         # Falta!! agregar otro board que es en el que se hacen las jugadas
-        self.board = Board()
+        self.board1 = Board()
+        
+        self.board2 = Board()
         
         global standalone_mode
         if not standalone_mode:
@@ -36,20 +38,28 @@ class MainWindow(gtk.Frame):
         else:
             toplevel_window.add(self)
       
+        print "Barcos Propios"
         self.ships = ShipsContainer()
-        self.ships.show()
         for ship in self.ships.ships:
-            self.board.add_ship(ship)
-            
+            self.board1.add_ship(ship)
+            print "%s: %s" % (ship.nombre, ship.pos)
+
+        print "Barcos Enemigos"
+        self.enemigos = ShipsContainer()
+        for ship in self.enemigos.ships:
+            self.board2.add_ship(ship)
+            print "%s: %s" % (ship.nombre, ship.pos)
+
         self.pane = gtk.HBox()
         self.pane.add(self.ships)
-        self.pane.add(self.board)
+        self.pane.add(self.board1)
+        self.pane.add(self.board2)
         self.pane.show()
         
         self.add(self.pane)
         self.show()
         toplevel_window.width, toplevel_window.height = (800,600)
-        toplevel_window.show()
+        toplevel_window.show_all()
 
 class ShipsContainer(gtk.VBox):
     
@@ -63,14 +73,23 @@ class ShipsContainer(gtk.VBox):
             Ship("Submarino", 3, None),
             Ship("Destructor", 2, None)]
         
-        for ship in self.ships:
-            # Calculo coordenadas random, asumo orientacion horizontal
-            # Falta!! mejorarlo para que los barcos no se choquen
-            posx = random.randint(1, 11-ship.largo)
-            posy = random.randint(1, 10)
-            
-            ship.pos = (posx, posy)
+        celdas_ocupadas = []
         
+        for ship in self.ships:
+            ok = False
+            while not ok:
+                # Calculo coordenadas random, asumo orientacion horizontal
+                posx = random.randint(1, 10)
+                posy = random.randint(1, 10-ship.largo)
+                
+                ship.pos = (posx, posy)
+                ok = True
+                for celda in ship.get_celdas():
+                    if celda in celdas_ocupadas:
+                        ok = False
+                if ok:
+                    celdas_ocupadas.extend(ship.get_celdas())
+
 #        self.add(Ship("Portaaviones", 5, None)) #Portaaviones
 #        self.add(Ship("Acorazado", 4, None))  #Acorazado
 #        self.add(Ship("Crucero", 3, None))    #Crucero
@@ -78,6 +97,16 @@ class ShipsContainer(gtk.VBox):
 #        self.add(Ship("Destructor", 2, None)) #Destructor
         
         self.show()
+
+class Celda(gtk.Frame):
+    
+    def __init__(self, pos):
+        gtk.Frame.__init__(self)
+        self.pos = pos
+    
+    def ocultar(self):
+        self.set_no_show_all(True)
+        self.hide()
         
 class Board(gtk.Frame):
     
@@ -113,23 +142,39 @@ class Board(gtk.Frame):
         self.table.attach(self.top_table, 1, 2, 0, 1)
         self.table.attach(self.left_table, 0, 1, 1, 2)
         
+        self.rows = []
+        
         # El tablero es otra tabla
-        self.cells_table = gtk.Table(10, 10, False)
+        self.cells_table = gtk.Table(10, 10, True)
         self.table.attach(self.cells_table, 1, 2, 1, 2)
         self.cells_table.show()
         for i in range(1, 11):
+            row = []
             for j in range(1, 11):
                 left = j - 1
                 top = i - 1
-                label = gtk.Label("(%s,%s)"%(i,j))
-                self.cells_table.attach(label, left, j, top, i)
-                label.show()
+                #label = gtk.Label("(%s,%s)"%(i,j))
+                celda = Celda((i, j))
+                row.append(celda)
+                self.cells_table.attach(celda, left, j, top, i)
                 #print label.get_text()
+            self.rows.append(row)
         
         self.show()
     
     def add_ship(self, ship):
-        self.cells_table.attach(ship, ship.pos[0]-1, ship.pos[0] + ship.largo, ship.pos[1]-1, ship.pos[1])
+        for i in ship.get_filas():
+            for j in ship.get_cols():
+                self.ocultar_celda(i, j)
+        izq = ship.get_inicio()[1]-1
+        der = ship.get_fin()[1]
+        arr = ship.get_inicio()[0]-1
+        aba = ship.get_fin()[0]
+        print "%s, %s, %s, %s, %s" % (ship.nombre, izq, der, arr, aba)
+        self.cells_table.attach(ship, izq, der, arr, aba)
+        
+    def ocultar_celda(self, i, j):
+        self.rows[i-1][j-1].ocultar()
 
 class Ship(gtk.Frame):
     
@@ -137,14 +182,35 @@ class Ship(gtk.Frame):
     vertical = 'V'
     
     def __init__(self, nombre, largo, pos, orientacion = horizontal):
-        gtk.Frame.__init__(self, nombre)
+        #gtk.Label.__init__(self, nombre)
+        gtk.Frame.__init__(self)
         self.nombre = nombre
         self.largo = largo
         self.orientacion = orientacion
         self.pos = pos
         
+        self.add(gtk.Label(nombre))
         self.show()
+    
+    def get_inicio(self):
+        return self.pos
+    
+    def get_fin(self):
+        if self.orientacion == Ship.horizontal:
+            return self.pos[0], self.pos[1] + self.largo
+        else:
+            return self.pos[0] + self.largo, self.pos[1]
 
+        
+    def get_filas(self):
+        return range(self.get_inicio()[0], self.get_fin()[0]+1)
+    
+    def get_cols(self):
+        return range(self.get_inicio()[1], self.get_fin()[1]+1)
+    
+    def get_celdas(self):
+        return [(f, c) for f in self.get_filas() for c in self.get_cols()]
+    
 # This function is the common entry point for sugar and standalone mode
 # standalone is a boolean indicating Standalone mode or Sugar mode.
 def init(standalone, toplevel_window):

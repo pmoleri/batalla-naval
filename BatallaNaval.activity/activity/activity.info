@@ -1,0 +1,9 @@
+[Activity]
+name = BatallaNaval
+bundle_id = org.ceibaljam.BatallaNaval
+class = BatallaNavalActivity.BatallaNavalActivity
+icon = batalla-naval-icon
+activity_version = 2
+host_version = 1
+show_launcher = no
+license = GPLv2+

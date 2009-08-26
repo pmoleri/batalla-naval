@@ -14,14 +14,7 @@ class BatallaNavalActivity(Activity):
         self.connect('focus_in_event', self._focus_in)
         self.connect('focus_out_event', self._focus_out)
         
-        self.colaboracion = CollaborationWrapper(self, None, None, None)
-        self.connect('shared', self.colaboracion._shared_cb)
-        if self._shared_activity:
-            # We are joining the activity
-            self.connect('joined', self.colaboracion._joined_cb)
-            if self.get_shared():
-                # We've already joined
-                self.colaboracion._joined_cb()
+        self.colaboracion = CollaborationWrapper(self)
         
         # The activity is a subclass of Window, so it passses itself to the init function
         BatallaNaval.init(False, self)

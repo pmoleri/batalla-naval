@@ -18,7 +18,6 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import logging
-import sugar.logger
 
 from sugar.presence import presenceservice
 import telepathy
@@ -41,21 +40,36 @@ IFACE = SERVICE
 PATH = "/org/ceibaljam/BatallaNaval"
 
 logger = logging.getLogger('BatallaNaval')
+logger.setLevel(logging.DEBUG)
 
 class CollaborationWrapper(ExportedGObject):
     ''' A wrapper for the collaboration bureaucracy
         Recibe la actividad y los callbacks necesarios '''
     
-    def __init__(self, activity, buddy_joined_cb, buddy_left_cb, play_cb):
+    def __init__(self, activity):
         self.activity = activity
-        self.buddy_joined = buddy_joined_cb
-        self.buddy_left = buddy_left_cb
-        self.Play_cb = play_cb
-        self.world = False
-        self.entered = False
         self.presence_service = presenceservice.get_instance()
         self.owner = self.presence_service.get_owner()
+    
+    def set_up(self, buddy_joined_cb, buddy_left_cb, World_cb, Play_cb, mis_barcos):
+        self.activity.connect('shared', self._shared_cb)
+        if self.activity._shared_activity:
+            # We are joining the activity
+            self.activity.connect('joined', self._joined_cb)
+            if self.activity.get_shared():
+                # We've already joined
+                self._joined_cb()
         
+        self.buddy_joined = buddy_joined_cb
+        self.buddy_left = buddy_left_cb
+        self.World_cb = World_cb        # Llamado cuando alguien me pasa el estado del tablero
+        self.Play_cb = Play_cb          # Llamado cuando alguien me informa de una jugada
+        
+        # Enviado al hacer World sobre un nuevo compañero
+        self.mis_barcos = [(b.nombre, b.orientacion, b.largo, b.pos[0], b.pos[1]) for b in mis_barcos]
+        self.world = False
+        self.entered = False
+
     def _shared_cb(self, activity):
         #self.activity.gameToolbar.grey_out_size_change()
         #self.activity.gameToolbar.grey_out_restart()
@@ -131,13 +145,14 @@ class CollaborationWrapper(ExportedGObject):
     # This method receives the current game state and puts us in sync
     # with the rest of the participants. 
     # The current game state is represented by the game object
-    @method(dbus_interface=IFACE, in_signature='', out_signature='')
-    def World(self):
+    @method(dbus_interface=IFACE, in_signature='a(ssiii)', out_signature='a(ssiii)')
+    def World(self, barcos):
         """To be called on the incoming XO after they Hello."""
         if not self.world:
             logger.debug('Somebody called World on me')
             #self.activity.board_size_change(None, size)
             self.world = True   # En vez de cargar el mundo, lo voy recibiendo jugada a jugada.
+            self.World_cb(barcos)
             #self.activity.set_player_color(self.activity.invert_color(taken_color))
             #self.players = players
             # now I can World others
@@ -145,12 +160,13 @@ class CollaborationWrapper(ExportedGObject):
         else:
             self.world = True
             logger.debug("I've already been welcomed, doing nothing")
+        return self.mis_barcos
     
     @signal(dbus_interface=IFACE, signature='ii')
     def Play(self, x, y):
         """Say Hello to whoever else is in the tube."""
-        logger.debug('Signaling players of stone placement at:%s x %s.', x, y)
-
+        logger.debug('Ejecutando jugada remota:%s x %s.', x, y)
+    
     def add_hello_handler(self):
         logger.debug('Adding hello handler.')
         self.tube.add_signal_receiver(self.hello_signal_cb, 'Hello', IFACE,
@@ -166,8 +182,13 @@ class CollaborationWrapper(ExportedGObject):
         logger.debug('Newcomer %s has joined', sender)
         logger.debug('Welcoming newcomer and sending them the game state')
         
-        # No le mandamos nada, la solo interesa mandar jugadas y reflejar el resultado {tocado, agua, hundido}
-        self.tube.get_object(sender, PATH).World(dbus_interface=IFACE)
+        self.other = sender     # Sería práctico cuando juego contra uno solo y quiero ejecutar métodos sobre él
+        
+        # Le mando mis barcos y me devuelve los suyos
+        barcos_enemigos = self.tube.get_object(self.other, PATH).World(self.mis_barcos, dbus_interface=IFACE)
+        
+        # Llamo al callback de World, para que cargue los barcos enemigos
+        self.World_cb(barcos_enemigos)
         
     def play_signal_cb(self, x, y, sender=None):
         """Somebody placed a stone. """

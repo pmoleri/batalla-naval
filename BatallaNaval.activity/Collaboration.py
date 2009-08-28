@@ -29,11 +29,19 @@ except:
   from sugar.presence.tubeconn import TubeConnection as SugarTubeConnection
 from dbus.gobject_service import ExportedGObject
 
+''' En todas las actividades colaborativas Sugar nos matiene al tanto cuando entra o sale un Jugador
+    Para que todos conozcan el estado de la Actividad se maneja la técnica Hello World,
+    donde cuando un participante entra se emite una señal Hello que llega a todos los participantes
+    y los participantes responden directamente al nuevo el método "World", mediante la cual
+    se le pasa el estado actual de la actividad.
+    Luego las actualizaciones se dan con señal Play, mediante la cual cada participante comunica al
+    resto su jugada.
 
-# Todas las actividades colaborativas de sugar deben tener implentadas las señales "Hello" y "World"
-# Cuando alguien entra a la colaboración sugar automáticamente emite la señal Hello
-# Este wrapper automáticamente responde con la señal World, que sirve para informarle al nuevo
-# participante el estado actual.
+    En resumen en este módulo se encapsula la lógica de la "colaboración" con el siguiente funcionamiento:
+        - Cuando alguien entra a la colaboración se emite la señal Hello
+        - Quien recibe la señal automáticamente responde con la señal World
+        - Cada vez que alguien juega emite la señal Play
+'''
 
 SERVICE = "org.ceibaljam.BatallaNaval"
 IFACE = SERVICE
@@ -111,7 +119,7 @@ class CollaborationWrapper(ExportedGObject):
         for buddy in self.activity._shared_activity.get_joined_buddies():
             logger.debug('Buddy %s is already in the activity',
                                buddy.props.nick)
-                               
+   
     def participant_change_cb(self, added, removed):
         logger.debug('Tube: Added participants: %r', added)
         logger.debug('Tube: Removed participants: %r', removed)
@@ -126,8 +134,7 @@ class CollaborationWrapper(ExportedGObject):
                 logger.debug('Buddy %s was removed' % buddy.props.nick)
         if not self.entered:
             if self.is_initiator:
-                logger.debug("I'm initiating the tube, will "
-                    "watch for hellos.")
+                logger.debug("I'm initiating the tube, will watch for hellos.")
                 self.add_hello_handler()
             else:
                 logger.debug('Hello, everyone! What did I miss?')

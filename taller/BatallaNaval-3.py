@@ -26,8 +26,8 @@ class PanelPrincipal(gtk.HBox):
     def __init__(self):
         gtk.HBox.__init__(self, True)
         
-        self.tablero1 = Tablero(None)               # tablero propio  
-        self.tablero2 = Tablero(self.jugada_hecha)  # tablero enemigo
+        self.tablero1 = Tablero()               # tablero propio  
+        self.tablero2 = Tablero()  # tablero enemigo
 
         log.debug("Barcos Propios")
         barcos_propios = crear_barcos()
@@ -44,56 +44,7 @@ class PanelPrincipal(gtk.HBox):
         self.add(self.tablero1)
         self.add(self.tablero2)
         
-        self.jugadas_enemigas = []   # Lleva un registro de las jugadas hechas por la computadora
-        
         self.show_all()
-    
-    # Carga barcos remotos
-    def cargar_barcos(self, barcos):
-        ''' Esta función es llamada cuando me conecto en red con otro usuario, recibo
-            una tupla con los datos de los barcos enemigos. '''
-        log.debug("Cargando barcos enemigos")
-        self.tablero2.barcos = []
-        for dato in barcos:
-            log.debug("Dato: %s" % str(dato))
-            nombre = dato[0]
-            orientacion = dato[1]
-            largo = dato[2]
-            pos = dato[3:5]
-            
-            barco = Barco(nombre, largo, pos, orientacion)
-            self.tablero2.agregar_barco(barco, False)
-            log.debug("barco:%s, %s (%s, %s)" % (barco.name, barco.orientacion, barco.pos[0], barco.pos[1]))
-    
-    def jugada_red(self, x, y):
-        ''' Callback de colaboración para la señal Play.
-            Cuando el enemigo juega sobre mi tablero, reflejo la judada y le respondo si fue tocado '''
-        return self.tablero1.jugada(self.tablero1.filas[x-1][y-1])
-    
-    def jugada_hecha(self, x, y):
-        ''' Cuando yo mismo hice una jugada sobre el tablero enemigo
-            si la actividad está compartida indico al oponente la jugada que hice,
-            en caso contrario me simulo una jugada random del enemigo. '''
-
-        # Si estoy compartiendo con alguien, indico al oponente la jugada que hice
-        if self.colaboracion and self.colaboracion.entered:
-            log.debug("Señalo jugada a los participantes")
-            self.colaboracion.Play(x, y)
-            return
-        
-        # Sinó, la computadora hace una jugada al azar sobre el tablero propio
-        if len(self.jugadas_enemigas) == 100:
-            log.error("Alcanzó las 100 jugadas.")
-            return
-        
-        ok = False
-        while not ok:
-            x, y = random.randint(1, 10), random.randint(1, 10)
-            if not (x, y) in self.jugadas_enemigas:
-                ok = True
-        
-        self.jugadas_enemigas.append((x, y))
-        self.tablero1.jugada(self.tablero1.filas[x-1][y-1])
 
 class Barco(gtk.Frame):
     ''' Esta clase representa un barco, tiene nombre, largo, orientación y posición.
@@ -175,9 +126,7 @@ def crear_barcos():
     return barcos
 
 class Celda(gtk.Button):
-    ''' Esta clase representa una celda del tablero, como es subclase de button se le puede
-        conectar la señal "clicked".
-        También presenta funciones para ocultar y colorearse dependiendo de si tocó un barco o dió agua. '''
+    ''' Esta clase representa una celda del tablero. '''
         
     def __init__(self, pos):
         gtk.Button.__init__(self)
@@ -187,17 +136,6 @@ class Celda(gtk.Button):
         ''' Oculta permanentemente la celda, de modo que show_all no la muestre '''
         self.set_no_show_all(True)
         self.hide()
-    
-    def colorear(self, color):
-        self.modify_bg(gtk.STATE_NORMAL, color)
-        self.modify_bg(gtk.STATE_PRELIGHT, color)
-        self.show()     # Por si está oculta atrás de un barco
-
-    def tocado(self):
-        self.colorear( gtk.gdk.Color(65535,65535/2,0) )
-        
-    def agua(self):
-        self.colorear( gtk.gdk.Color(0,0,65535/2) )
 
 
 class Tablero(gtk.Frame):
@@ -205,7 +143,7 @@ class Tablero(gtk.Frame):
         los títulos de las filas y las columnas (que a su vez son tablas) y una tabla interior
         que tiene todas las celdas del tablero (tabla_celdas). '''
     
-    def __init__(self, llamada_jugada_hecha):
+    def __init__(self):
         gtk.Frame.__init__(self)
 
         # Números
@@ -243,16 +181,12 @@ class Tablero(gtk.Frame):
             fila = []
             for j in range(1, 11):
                 celda = Celda((i, j))
-                celda.connect("clicked", self.celda_clickeada)
                 fila.append(celda)
                 self.tabla_celdas.attach(celda, j-1, j, i-1, i)
             self.filas.append(fila)
         
         # Los barcos que hay en el tablero
         self.barcos = []
-        
-        # Callback para cuando el jugador hace una jugada en el tablero
-        self.llamada_jugada_hecha = llamada_jugada_hecha
     
     def agregar_barco(self, barco, mostrar):
         ''' Agrega un barco al tablero, si mostrar=True sustituye las celdas que ocupa por el barco. '''
@@ -269,27 +203,6 @@ class Tablero(gtk.Frame):
     
     def ocultar_celda(self, i, j):
         self.filas[i-1][j-1].ocultar()
-
-    def celda_clickeada(self, celda):
-        ''' Cuando hay definido un callback de jugadas hechas, significa que en este tablero puedo jugar.
-            Realizo la jugada y notifico al callback '''
-        if self.llamada_jugada_hecha:
-            # Este es el callback para cuando clickean una celda
-            self.jugada(celda)
-            self.llamada_jugada_hecha(celda.pos[0], celda.pos[1])
-    
-    def jugada(self, celda):
-        ''' verifica si la jugada da en algún barco o en el agua y manda la señal correcta a la celda '''
-        tocado = False
-        for barco in self.barcos:
-            if celda.pos in barco.get_celdas():
-                tocado = True
-                celda.tocado()
-        if not tocado:
-            celda.agua()
-            
-        log.debug("Pos:%s Tocado:%s", str(celda.pos), tocado)
-        return tocado
     
 def init(standalone, ventana_principal):
     ''' Esta función es el punto de entrada común para sugar y modo standalone
@@ -298,18 +211,8 @@ def init(standalone, ventana_principal):
     
     if not standalone:
         ventana_principal.set_canvas(panel_principal)
-        
-        # Colaboración
-        panel_principal.colaboracion = ventana_principal.colaboracion
-        panel_principal.colaboracion.set_up(
-                None,   # Nuevo compañero
-                None,   # Salió Compañero
-                panel_principal.cargar_barcos,  # World
-                panel_principal.jugada_red,     # Play
-                panel_principal.tablero1.barcos)# Mis barcos
     else:
         ventana_principal.add(panel_principal)
-        panel_principal.colaboracion = None
     
     ventana_principal.set_title("Batalla Naval - ceibalJAM")
     ventana_principal.connect("destroy", lambda wid: gtk.main_quit())

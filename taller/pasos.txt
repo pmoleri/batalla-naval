@@ -1,0 +1,55 @@
+'''
+BatallaNaval-1 (python-básico):
+    * Main
+    * init
+    * PanelPrincipal
+    * Celda
+    * Tablero
+    * Barco
+    * crearBarcos
+
+BatallaNaval-2 (gtk-básico):
+    * Agregar código en main e init() y parámetro ventana_principal
+    * PanelPrincipal gtk.HBox (agregar init)
+        * Ambos tableros
+        * show_all
+        * comentar barcos
+
+    * Celda gtk.Button (agregar init)
+    * Tablero gtk.Frame (agregar init)
+        * Nuevas tablas
+        * Atachar celdas al tablero
+    * MOSTRAR
+    
+    * Barco gtk.Frame (agregar init)
+        * Agrega set_orientacion
+
+    * PanelPrincipal
+        * Agregar Ambos barcos
+    * Tablero
+        * Agregar código para mostrar barco
+    * MOSTRAR
+
+BatallaNaval-3 (Sugarizar):
+    * Agrega módulo de Actividad
+    * Agrega carpeta activity
+    * Agrega setup.py
+    * Agrega parámetro standalone
+    * Agrega código en el init
+
+BatallaNaval-4 (gtk-avanzado):
+    * Agrega jugadas_enemigas
+    * Agrega jugada_hecha
+    * Agrega callback de jugada_hecha al crear tableros
+    * Guarda el callback en el init del tablero
+    * Agrega funciones de colorear a celda
+    * Agrega connect a la celda
+    
+BatallaNaval (colaboración):
+    * Agrega módulo de colaboración
+    * Crea colaboración en la Actividad
+    * Inicializa colaboración en el init
+    * Agrega código en jugada_hecha para manejar colaboración
+    * Agrega jugada_red para reflejar las jugadas que hace el oponente
+    * Agrega cargar_barcos
+'''

@@ -48,40 +48,9 @@ class PanelPrincipal(gtk.HBox):
         
         self.show_all()
     
-    # Carga barcos remotos
-    def cargar_barcos(self, barcos):
-        ''' Esta función es llamada cuando me conecto en red con otro usuario, recibo
-            una tupla con los datos de los barcos enemigos. '''
-        log.debug("Cargando barcos enemigos")
-        self.tablero2.barcos = []
-        for dato in barcos:
-            log.debug("Dato: %s" % str(dato))
-            nombre = dato[0]
-            orientacion = dato[1]
-            largo = dato[2]
-            pos = dato[3:5]
-            
-            barco = Barco(nombre, largo, pos, orientacion)
-            self.tablero2.agregar_barco(barco, False)
-            log.debug("barco:%s, %s (%s, %s)" % (barco.name, barco.orientacion, barco.pos[0], barco.pos[1]))
-    
-    def jugada_red(self, x, y):
-        ''' Callback de colaboración para la señal Play.
-            Cuando el enemigo juega sobre mi tablero, reflejo la judada y le respondo si fue tocado '''
-        return self.tablero1.jugada(self.tablero1.filas[x-1][y-1])
-    
     def jugada_hecha(self, x, y):
-        ''' Cuando yo mismo hice una jugada sobre el tablero enemigo
-            si la actividad está compartida indico al oponente la jugada que hice,
-            en caso contrario me simulo una jugada random del enemigo. '''
-
-        # Si estoy compartiendo con alguien, indico al oponente la jugada que hice
-        if self.colaboracion and self.colaboracion.entered:
-            log.debug("Señalo jugada a los participantes")
-            self.colaboracion.Play(x, y)
-            return
+        ''' Cuando hice una jugada sobre el tablero enemigo, simulo una jugada random del enemigo. '''
         
-        # Sinó, la computadora hace una jugada al azar sobre el tablero propio
         if len(self.jugadas_enemigas) == 100:
             log.error("Alcanzó las 100 jugadas.")
             return
@@ -287,7 +256,7 @@ class Tablero(gtk.Frame):
                 celda.tocado()
         if not tocado:
             celda.agua()
-            
+        
         log.debug("Pos:%s Tocado:%s", str(celda.pos), tocado)
         return tocado
     
@@ -298,18 +267,8 @@ def init(standalone, ventana_principal):
     
     if not standalone:
         ventana_principal.set_canvas(panel_principal)
-        
-        # Colaboración
-        panel_principal.colaboracion = ventana_principal.colaboracion
-        panel_principal.colaboracion.set_up(
-                None,   # Nuevo compañero
-                None,   # Salió Compañero
-                panel_principal.cargar_barcos,  # World
-                panel_principal.jugada_red,     # Play
-                panel_principal.tablero1.barcos)# Mis barcos
     else:
         ventana_principal.add(panel_principal)
-        panel_principal.colaboracion = None
     
     ventana_principal.set_title("Batalla Naval - ceibalJAM")
     ventana_principal.connect("destroy", lambda wid: gtk.main_quit())
